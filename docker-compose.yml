@@ -46,6 +46,84 @@ services:
         - ./mongo-data:/data/db
 
 
+  discovery-server:
+    image: gerd1984/discovery-server:latest
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - zipkin
+
+  api-gateway:
+    image: gerd1984/api-gateway:latest
+    container_name: api-gateway
+    ports:
+      - "8181:8080"
+    expose:
+      - "8181"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - zipkin
+      - discovery-server
+
+  ## Product-Service Docker Compose Config
+  product-service:
+    container_name: product-service
+    image: gerd1984/product-service:latest
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - mongo
+      - discovery-server
+      - api-gateway
+
+  ## Order-Service Docker Compose Config
+  order-service:
+    container_name: order-service
+    image: gerd1984/order-service:latest
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-order:5431/order-service
+    depends_on:
+      - postgres-order
+      - broker
+      - zipkin
+      - discovery-server
+      - api-gateway
+
+  ## Inventory-Service Docker Compose Config
+  inventory-service:
+    container_name: inventory-service
+    image: gerd1984/inventory-service:latest
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-inventory:5433/inventory-service
+    depends_on:
+      - postgres-inventory
+      - discovery-server
+      - api-gateway
+
+  ## Notification-Service Docker Compose Config
+  notification-service:
+    container_name: notification-service
+    image: gerd1984/notification-service:latest
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - zipkin
+      - broker
+      - discovery-server
+      - api-gateway
+
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.2
     container_name: zookeeper
@@ -68,3 +146,33 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+
+  prometheus:
+    image: prom/prometheus:v2.37.1
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - product-service
+      - inventory-service
+      - order-service
+      - notification-service
+
+
+  grafana:
+    image: grafana/grafana-oss:8.5.2
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    links:
+      - prometheus:prometheus
+    volumes:
+      - ./grafana:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=password
