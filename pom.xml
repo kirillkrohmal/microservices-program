@@ -20,6 +20,8 @@
         <module>order-service</module>
         <module>inventory-service</module>
         <module>discovery-server</module>
+        <module>api-gateway</module>
+        <module>notification-service</module>
     </modules>
 
     <properties>
@@ -69,6 +71,21 @@
                 <configuration>
                     <source>17</source>
                     <target>17</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>jib-maven-plugin</artifactId>
+                <version>3.2.1</version>
+                <configuration>
+                    <from>
+                        <image>eclipse-temurin:17@sha256:7c08b969337bc44101a21a56eddfe65e20560045f558fad804d8d06bb455e778</image>
+                    </from>
+                    <to>
+                        <image>
+                            registry.hub.docker.com/gerd1984/${artifactId}
+                        </image>
+                    </to>
                 </configuration>
             </plugin>
         </plugins>
